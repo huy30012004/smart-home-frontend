@@ -19,21 +19,16 @@ export default function RoomControl() {
   const [live,   setLive]   = useState({ temperature: '--', humidity: '--' });
   const [states, setStates] = useState({ light: 'off', fan: 'off' });
 
-    useEffect(() => {
-    fetch(`${process.env.REACT_APP_API_URL}/room/${roomId}`)
-      .then(res => {
-        if (!res.ok) throw new Error(`Room "${roomId}" not found`);
-        return res.json();
-      })
-      .then(json => {
-        setLive({
-          temperature: json.live_temp,
-          humidity:    json.live_hum
-        });
-        setStates(json.device_states);
-      })
-      .catch(err => console.error('Fetch room data error:', err));
-  }, [roomId, process.env.REACT_APP_API_URL]);
+   useEffect(() => {
+  fetch(`${process.env.REACT_APP_API_URL}/api/room/${roomId}`)
+    .then(res => res.json())
+    .then(json => {
+      setLive({ temperature: json.live_temp, humidity: json.live_hum });
+      setStates(json.device_states);
+    })
+    .catch(err => console.error('Fetch room data error:', err));
+}, [roomId]);
+
 
   // Khi bấm toggle, gửi REST vẫn để lưu log và trigger backend
   const handleToggle = device => {
