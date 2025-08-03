@@ -19,65 +19,21 @@ export default function RoomControl() {
   const [live,   setLive]   = useState({ temperature: '--', humidity: '--' });
   const [states, setStates] = useState({ light: 'off', fan: 'off' });
 
-  useEffect(() => {
-    // 1. Khởi tạo MQTT client
-    const MQTT_BROKER_WS = '4a97043579714e55aba4f9b977919abb.s1.eu.hivemq.cloud';
-    const MQTT_PORT_WS   = 8884;            // WebSockets secure port
-    const MQTT_PATH      = '/mqtt';         // theo docs HiveMQ Cloud
-    const MQTT_USER      = 'admin-1';
-    const MQTT_PASSWORD  = '1n1n1n1N!';
-    const TOPIC          = 'sensor/esp32/data';
-
-    const clientId = 'web_' + Math.random().toString(16).slice(2);
-    const mqttClient = new Paho.Client(
-      MQTT_BROKER_WS,
-      MQTT_PORT_WS,
-      MQTT_PATH,
-      clientId
-    );
-
-    mqttClient.onConnectionLost = resp => {
-      console.error('MQTT connection lost:', resp.errorMessage);
-    };
-
-    mqttClient.onMessageArrived = message => {
-      try {
-        const payload = JSON.parse(message.payloadString);
-        if (payload.room === roomId) {
-          // Cập nhật live sensor
-          setLive({
-            temperature: payload.temperature,
-            humidity:    payload.humidity
-          });
-          // Cập nhật device states
-          setStates({
-            light: payload.light_status === 1 ? 'on' : 'off',
-            fan:   payload.fan_status   === 1 ? 'on' : 'off'
-          });
-        }
-      } catch (err) {
-        console.error('Invalid MQTT payload', err);
-      }
-    };
-
-    // Kết nối
-    mqttClient.connect({
-      useSSL:      true,
-      userName:    MQTT_USER,
-      password:    MQTT_PASSWORD,
-      onSuccess:   () => {
-        console.log('MQTT connected, subscribing to', TOPIC);
-        mqttClient.subscribe(TOPIC);
-      },
-      onFailure:   err => console.error('MQTT connect failed', err),
-      reconnect:   true
-    });
-
-    // Dọn dẹp khi unmount
-    return () => {
-      if (mqttClient.isConnected()) mqttClient.disconnect();
-    };
-  }, [roomId]);
+    useEffect(() => {
+    fetch(`${process.env.REACT_APP_API_URL}/room/${roomId}`)
+      .then(res => {
+        if (!res.ok) throw new Error(`Room "${roomId}" not found`);
+        return res.json();
+      })
+      .then(json => {
+        setLive({
+          temperature: json.live_temp,
+          humidity:    json.live_hum
+        });
+        setStates(json.device_states);
+      })
+      .catch(err => console.error('Fetch room data error:', err));
+  }, [roomId, process.env.REACT_APP_API_URL]);
 
   // Khi bấm toggle, gửi REST vẫn để lưu log và trigger backend
   const handleToggle = device => {
