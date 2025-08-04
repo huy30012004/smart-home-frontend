@@ -1,7 +1,6 @@
 // src/pages/RoomControl.js
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import Paho from 'paho-mqtt';
 import {
   Box, Container, Grid,
   Card, CardHeader, CardContent,
@@ -11,6 +10,9 @@ import ThermostatIcon from '@mui/icons-material/Thermostat';
 import OpacityIcon    from '@mui/icons-material/Opacity';
 import LightbulbIcon  from '@mui/icons-material/Lightbulb';
 import FanIcon        from '@mui/icons-material/Toys';
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer
+} from 'recharts';
 
 export default function RoomControl() {
   const { roomId } = useParams();
@@ -18,6 +20,8 @@ export default function RoomControl() {
   // State cho live sensor và device
   const [live,   setLive]   = useState({ temperature: '--', humidity: '--' });
   const [states, setStates] = useState({ light: 'off', fan: 'off' });
+  // State giữ lịch sử các điểm đo
+  const [history, setHistory] = useState([]);
 
   // Hàm fetch dữ liệu từ Pi (Flask)
  const fetchRoomData = async () => {
@@ -34,6 +38,15 @@ export default function RoomControl() {
      });
      // cập nhật trạng thái device
      setStates(json.device_states || {});
+     // thêm một entry vào history
+     setHistory(h => [
+       ...h,
+       {
+         time: Date.now(),
+         temperature: +json.live_temp,
+         humidity: +json.live_hum
+       }
+     ].slice(-50)); // chỉ giữ lại 50 điểm gần nhất
    } catch (err) {
      console.error('Fetch room data error:', err);
    }
@@ -122,6 +135,46 @@ export default function RoomControl() {
         </Grid>
 
         {/* (Bạn có thể thêm biểu đồ/giá trị lịch sử tương tự) */}
+              {/* Biểu đồ lịch sử */}
+      <Grid item xs={12} md={6}>
+        <Card elevation={3}>
+          <CardHeader title="Biểu đồ nhiệt độ & độ ẩm (real-time)" />
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={history}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="time"
+                  domain={['auto','auto']}
+                  name="Thời gian"
+                  tickFormatter={ts => new Date(ts).toLocaleTimeString()}
+                  type="number"
+                />
+                <YAxis yAxisId="left" domain={['auto','auto']} name="°C" />
+                <YAxis yAxisId="right" orientation="right" domain={[0,100]} name="%" />
+                <Tooltip labelFormatter={ts => new Date(ts).toLocaleTimeString()} />
+                <Line 
+                  yAxisId="left"
+                  type="monotone" 
+                  dataKey="temperature" 
+                  dot={false} 
+                  stroke="#ff5722" 
+                  name="Nhiệt độ (°C)" 
+                />
+                <Line 
+                  yAxisId="right"
+                  type="monotone" 
+                  dataKey="humidity" 
+                  dot={false} 
+                  stroke="#2196f3" 
+                  name="Độ ẩm (%)" 
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </Grid>
+
       </Grid>
     </Container>
   );
