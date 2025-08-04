@@ -19,15 +19,36 @@ export default function RoomControl() {
   const [live,   setLive]   = useState({ temperature: '--', humidity: '--' });
   const [states, setStates] = useState({ light: 'off', fan: 'off' });
 
+  // Hàm fetch dữ liệu từ Pi (Flask)
+ const fetchRoomData = async () => {
+   try {
+     const res = await fetch(
+       `${process.env.REACT_APP_API_URL}/room/${roomId}`
+     );
+     if (!res.ok) throw new Error('Fetch failed');
+     const json = await res.json();
+     // cập nhật live sensor
+     setLive({
+       temperature: json.live_temp ?? '--',
+       humidity:    json.live_hum  ?? '--'
+     });
+     // cập nhật trạng thái device
+     setStates(json.device_states || {});
+   } catch (err) {
+     console.error('Fetch room data error:', err);
+   }
+ };
+
    useEffect(() => {
-  fetch(`${process.env.REACT_APP_API_URL}/api/room/${roomId}`)
-    .then(res => res.json())
-    .then(json => {
-      setLive({ temperature: json.live_temp, humidity: json.live_hum });
-      setStates(json.device_states);
-    })
-    .catch(err => console.error('Fetch room data error:', err));
-}, [roomId]);
+    // fetch lần đầu
+    fetchRoomData();
+
+    // sau đó polling mỗi 5s
+    const intervalId = setInterval(fetchRoomData, 5000);
+
+    // cleanup khi unmount
+    return () => clearInterval(intervalId);
+  }, [roomId]);
 
 
   // Khi bấm toggle, gửi REST vẫn để lưu log và trigger backend
